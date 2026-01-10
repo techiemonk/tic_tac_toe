@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:audioplayers/audioplayers.dart';
 
 void main() {
   runApp(const MaterialApp(
@@ -15,6 +16,11 @@ class TicTacToeGame extends StatefulWidget {
 }
 
 class _TicTacToeGameState extends State<TicTacToeGame> {
+  final AudioPlayer player = AudioPlayer();
+  
+  // --- NEW VARIABLE FOR MUTE ---
+  bool isSoundOn = true; 
+
   List<String> displayElement = List.filled(9, '');
   List<int> oMoves = [];
   List<int> xMoves = [];
@@ -25,8 +31,33 @@ class _TicTacToeGameState extends State<TicTacToeGame> {
   // COLORS
   final Color bgTop = const Color(0xFF1a1a2e);
   final Color bgBottom = const Color(0xFF16213e);
-  final Color oColor = const Color(0xFF00fff5); // Cyan
-  final Color xColor = const Color(0xFFff2e63); // Pinkish Red
+  final Color oColor = const Color(0xFF00fff5);
+  final Color xColor = const Color(0xFFff2e63);
+
+  final List<Color> tileColors = const [
+    Color(0xFFEF5350), Color(0xFFFFA726), Color(0xFFFFEE58),
+    Color(0xFF66BB6A), Color(0xFF29B6F6), Color(0xFFAB47BC),
+    Color(0xFFEC407A), Color(0xFF7E57C2), Color(0xFF26A69A),
+  ];
+
+  @override
+  void dispose() {
+    player.dispose();
+    super.dispose();
+  }
+
+  // --- UPDATED SOUND FUNCTION ---
+  Future<void> _playSound() async {
+    // Only play if sound is enabled
+    if (isSoundOn) {
+      try {
+        await player.stop();
+        await player.play(AssetSource('pop.mp3'));
+      } catch (e) {
+        debugPrint("Error playing sound: $e");
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +73,7 @@ class _TicTacToeGameState extends State<TicTacToeGame> {
         child: SafeArea(
           child: Column(
             children: [
-              // 1. TOP HEADER
+              // HEADER
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
                 child: Row(
@@ -65,7 +96,7 @@ class _TicTacToeGameState extends State<TicTacToeGame> {
                 ),
               ),
 
-              // 2. SCOREBOARD
+              // SCOREBOARD
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -77,17 +108,17 @@ class _TicTacToeGameState extends State<TicTacToeGame> {
               
               const Spacer(),
 
-              // 3. THE GAME GRID
+              // GAME GRID
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 20),
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
+                  color: Colors.black.withOpacity(0.3),
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
-                      blurRadius: 20,
+                      color: Colors.black.withOpacity(0.5),
+                      blurRadius: 30,
                       spreadRadius: 5,
                     ),
                   ],
@@ -106,8 +137,12 @@ class _TicTacToeGameState extends State<TicTacToeGame> {
                       onTap: () => _tapped(index),
                       child: Container(
                         decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.3),
+                          color: tileColors[index].withOpacity(0.15),
                           borderRadius: BorderRadius.circular(15),
+                          border: Border.all(
+                            color: tileColors[index].withOpacity(0.3),
+                            width: 1,
+                          ),
                         ),
                         child: Center(
                           child: AnimatedSwitcher(
@@ -141,7 +176,7 @@ class _TicTacToeGameState extends State<TicTacToeGame> {
 
               const Spacer(),
 
-              // 4. FOOTER
+              // FOOTER
               const Text(
                 "Infinite Mode: Max 3 moves each",
                 style: TextStyle(color: Colors.white38, letterSpacing: 1),
@@ -190,45 +225,70 @@ class _TicTacToeGameState extends State<TicTacToeGame> {
     );
   }
 
-  // --- LOGIC ---
-
+  // --- UPDATED INFO DIALOG ---
   void _showInfoDialog() {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: bgBottom,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text("About", style: TextStyle(color: Colors.white)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: const [
-            Icon(Icons.code, color: Colors.cyanAccent, size: 50),
-            SizedBox(height: 20),
-            Text("Created by", style: TextStyle(color: Colors.white70)),
-            SizedBox(height: 5),
-            Text(
-              "techiemonk", 
-              style: TextStyle(
-                color: Colors.white, 
-                fontSize: 22, 
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.2
-              )
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            child: const Text("Close", style: TextStyle(color: Colors.cyanAccent)),
-            onPressed: () => Navigator.of(ctx).pop(),
-          )
-        ],
-      ),
+      builder: (ctx) {
+        // StatefulBuilder allows the switch to update visually inside the dialog
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              backgroundColor: bgBottom,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: const Text("Settings", style: TextStyle(color: Colors.white)),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 1. Credits
+                  const Text("Created by", style: TextStyle(color: Colors.white70)),
+                  const SizedBox(height: 5),
+                  const Text(
+                    "@techiemonk", 
+                    style: TextStyle(
+                      color: Colors.white, 
+                      fontSize: 22, 
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2
+                    )
+                  ),
+                  const SizedBox(height: 20),
+                  const Divider(color: Colors.white24),
+                  
+                  // 2. Sound Toggle
+                  SwitchListTile(
+                    title: const Text("Sound Effects", style: TextStyle(color: Colors.white)),
+                    value: isSoundOn,
+                    activeColor: oColor, // Neon Cyan color
+                    onChanged: (bool value) {
+                      setStateDialog(() {
+                        isSoundOn = value; // Update dialog state
+                      });
+                      setState(() {
+                         // Update main game state
+                      });
+                    },
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  child: const Text("Close", style: TextStyle(color: Colors.cyanAccent)),
+                  onPressed: () => Navigator.of(ctx).pop(),
+                )
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
   void _tapped(int index) {
     if (displayElement[index] == '') {
+      
+      _playSound(); 
+
       setState(() {
         if (oTurn) {
           if (oMoves.length >= 3) {
