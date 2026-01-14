@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'dart:math';
 
 void main() {
   runApp(const MaterialApp(
@@ -18,13 +19,15 @@ class TicTacToeGame extends StatefulWidget {
 class _TicTacToeGameState extends State<TicTacToeGame> {
   final AudioPlayer player = AudioPlayer();
   
-  // --- NEW VARIABLE FOR MUTE ---
-  bool isSoundOn = true; 
+  // --- SETTINGS ---
+  bool isSoundOn = true;
+  bool isSinglePlayer = false; 
+  bool isComputerThinking = false;
 
   List<String> displayElement = List.filled(9, '');
   List<int> oMoves = [];
   List<int> xMoves = [];
-  bool oTurn = true;
+  bool oTurn = true; 
   int oScore = 0;
   int xScore = 0;
 
@@ -46,9 +49,7 @@ class _TicTacToeGameState extends State<TicTacToeGame> {
     super.dispose();
   }
 
-  // --- UPDATED SOUND FUNCTION ---
   Future<void> _playSound() async {
-    // Only play if sound is enabled
     if (isSoundOn) {
       try {
         await player.stop();
@@ -89,8 +90,8 @@ class _TicTacToeGameState extends State<TicTacToeGame> {
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.info_outline, color: Colors.white),
-                      onPressed: _showInfoDialog,
+                      icon: const Icon(Icons.settings, color: Colors.white),
+                      onPressed: _showSettingsDialog,
                     ),
                   ],
                 ),
@@ -100,9 +101,9 @@ class _TicTacToeGameState extends State<TicTacToeGame> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _buildScore("PLAYER O", oScore, oColor, oTurn),
+                  _buildScore(isSinglePlayer ? "YOU (O)" : "PLAYER O", oScore, oColor, oTurn),
                   const SizedBox(width: 40),
-                  _buildScore("PLAYER X", xScore, xColor, !oTurn),
+                  _buildScore(isSinglePlayer ? "AI (X)" : "PLAYER X", xScore, xColor, !oTurn),
                 ],
               ),
               
@@ -123,54 +124,57 @@ class _TicTacToeGameState extends State<TicTacToeGame> {
                     ),
                   ],
                 ),
-                child: GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: 9,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    mainAxisSpacing: 10,
-                    crossAxisSpacing: 10,
-                  ),
-                  itemBuilder: (context, index) {
-                    return GestureDetector(
-                      onTap: () => _tapped(index),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: tileColors[index].withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(15),
-                          border: Border.all(
-                            color: tileColors[index].withOpacity(0.3),
-                            width: 1,
+                child: AbsorbPointer(
+                  absorbing: isComputerThinking,
+                  child: GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: 9,
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 3,
+                      mainAxisSpacing: 10,
+                      crossAxisSpacing: 10,
+                    ),
+                    itemBuilder: (context, index) {
+                      return GestureDetector(
+                        onTap: () => _tapped(index),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: tileColors[index].withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(15),
+                            border: Border.all(
+                              color: tileColors[index].withOpacity(0.3),
+                              width: 1,
+                            ),
                           ),
-                        ),
-                        child: Center(
-                          child: AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 400),
-                            transitionBuilder: (child, animation) {
-                              return ScaleTransition(scale: animation, child: child);
-                            },
-                            child: Text(
-                              displayElement[index],
-                              key: ValueKey(displayElement[index]),
-                              style: TextStyle(
-                                color: displayElement[index] == 'O' ? oColor : xColor,
-                                fontSize: 50,
-                                fontWeight: FontWeight.bold,
-                                shadows: [
-                                  BoxShadow(
-                                    color: displayElement[index] == 'O' ? oColor : xColor,
-                                    blurRadius: 20,
-                                    spreadRadius: 1,
-                                  ),
-                                ],
+                          child: Center(
+                            child: AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 400),
+                              transitionBuilder: (child, animation) {
+                                return ScaleTransition(scale: animation, child: child);
+                              },
+                              child: Text(
+                                displayElement[index],
+                                key: ValueKey(displayElement[index]),
+                                style: TextStyle(
+                                  color: displayElement[index] == 'O' ? oColor : xColor,
+                                  fontSize: 50,
+                                  fontWeight: FontWeight.bold,
+                                  shadows: [
+                                    BoxShadow(
+                                      color: displayElement[index] == 'O' ? oColor : xColor,
+                                      blurRadius: 20,
+                                      spreadRadius: 1,
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
               ),
 
@@ -201,8 +205,6 @@ class _TicTacToeGameState extends State<TicTacToeGame> {
     );
   }
 
-  // --- WIDGETS ---
-  
   Widget _buildScore(String label, int score, Color color, bool isTurn) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
@@ -225,12 +227,10 @@ class _TicTacToeGameState extends State<TicTacToeGame> {
     );
   }
 
-  // --- UPDATED INFO DIALOG ---
-  void _showInfoDialog() {
+  void _showSettingsDialog() {
     showDialog(
       context: context,
       builder: (ctx) {
-        // StatefulBuilder allows the switch to update visually inside the dialog
         return StatefulBuilder(
           builder: (context, setStateDialog) {
             return AlertDialog(
@@ -240,32 +240,29 @@ class _TicTacToeGameState extends State<TicTacToeGame> {
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // 1. Credits
-                  const Text("Created by", style: TextStyle(color: Colors.white70)),
-                  const SizedBox(height: 5),
-                  const Text(
-                    "@techiemonk", 
-                    style: TextStyle(
-                      color: Colors.white, 
-                      fontSize: 22, 
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.2
-                    )
-                  ),
+                  const Text("Created by @techiemonk", style: TextStyle(color: Colors.white70)),
                   const SizedBox(height: 20),
                   const Divider(color: Colors.white24),
                   
-                  // 2. Sound Toggle
                   SwitchListTile(
                     title: const Text("Sound Effects", style: TextStyle(color: Colors.white)),
                     value: isSoundOn,
-                    activeColor: oColor, // Neon Cyan color
+                    activeColor: oColor,
                     onChanged: (bool value) {
-                      setStateDialog(() {
-                        isSoundOn = value; // Update dialog state
-                      });
+                      setStateDialog(() => isSoundOn = value);
+                      setState(() {});
+                    },
+                  ),
+
+                  SwitchListTile(
+                    title: const Text("Single Player", style: TextStyle(color: Colors.white)),
+                    subtitle: const Text("vs Computer (Medium)", style: TextStyle(color: Colors.white38, fontSize: 12)),
+                    value: isSinglePlayer,
+                    activeColor: xColor,
+                    onChanged: (bool value) {
+                      setStateDialog(() => isSinglePlayer = value);
                       setState(() {
-                         // Update main game state
+                        _clearBoard();
                       });
                     },
                   ),
@@ -284,58 +281,132 @@ class _TicTacToeGameState extends State<TicTacToeGame> {
     );
   }
 
+  // --- GAME LOGIC ---
+
   void _tapped(int index) {
     if (displayElement[index] == '') {
-      
-      _playSound(); 
+      _playSound();
 
       setState(() {
         if (oTurn) {
-          if (oMoves.length >= 3) {
-            int oldest = oMoves.removeAt(0);
-            displayElement[oldest] = '';
-          }
-          oMoves.add(index);
-          displayElement[index] = 'O';
+          // Human
+          _handleMove(oMoves, index, 'O');
         } else {
-          if (xMoves.length >= 3) {
-            int oldest = xMoves.removeAt(0);
-            displayElement[oldest] = '';
-          }
-          xMoves.add(index);
-          displayElement[index] = 'X';
+          // AI or Human 2
+          _handleMove(xMoves, index, 'X');
         }
-        oTurn = !oTurn;
-        _checkWinner();
+
+        bool hasWon = _checkWinner();
+        
+        if (!hasWon) {
+          oTurn = !oTurn;
+          
+          if (isSinglePlayer && !oTurn) {
+            _playComputerTurn();
+          }
+        }
       });
     }
   }
 
-  void _checkWinner() {
-    List<List<int>> checks = [
+  void _handleMove(List<int> movesList, int index, String symbol) {
+    if (movesList.length >= 3) {
+      int oldest = movesList.removeAt(0);
+      displayElement[oldest] = '';
+    }
+    movesList.add(index);
+    displayElement[index] = symbol;
+  }
+
+  // --- IMPROVED AI LOGIC ---
+  void _playComputerTurn() async {
+    setState(() => isComputerThinking = true);
+
+    await Future.delayed(const Duration(milliseconds: 600));
+
+    if (!mounted || displayElement.every((e) => e == '')) {
+      setState(() => isComputerThinking = false);
+      return;
+    }
+
+    int bestMove = _getBestAiMove();
+    _tapped(bestMove);
+
+    setState(() => isComputerThinking = false);
+  }
+
+  int _getBestAiMove() {
+    // 1. TRY TO WIN (Priority 1)
+    int? winMove = _findSpotToWinOrBlock('X');
+    if (winMove != null) return winMove;
+
+    // 2. BLOCK PLAYER (Priority 2)
+    int? blockMove = _findSpotToWinOrBlock('O');
+    if (blockMove != null) return blockMove;
+
+    // 3. PLAY RANDOM
+    List<int> available = [];
+    for (int i = 0; i < 9; i++) {
+      if (displayElement[i] == '') available.add(i);
+    }
+    if (available.isNotEmpty) {
+      return available[Random().nextInt(available.length)];
+    }
+    return 0;
+  }
+
+  // New, Simpler Logic for finding winning/blocking spots
+  int? _findSpotToWinOrBlock(String player) {
+    // All possible winning lines
+    List<List<int>> lines = [
+      [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows
+      [0, 3, 6], [1, 4, 7], [2, 5, 8], // Cols
+      [0, 4, 8], [2, 4, 6]             // Diagonals
+    ];
+
+    for (var line in lines) {
+      var a = displayElement[line[0]];
+      var b = displayElement[line[1]];
+      var c = displayElement[line[2]];
+
+      // Check if the line has 2 of the specific player and 1 empty spot
+      if (a == player && b == player && c == '') return line[2];
+      if (a == player && c == player && b == '') return line[1];
+      if (b == player && c == player && a == '') return line[0];
+    }
+    return null;
+  }
+
+  bool _checkWinner() {
+    List<List<int>> lines = [
       [0, 1, 2], [3, 4, 5], [6, 7, 8],
       [0, 3, 6], [1, 4, 7], [2, 5, 8],
       [0, 4, 8], [2, 4, 6]
     ];
-    for (var check in checks) {
-      String p1 = displayElement[check[0]];
-      String p2 = displayElement[check[1]];
-      String p3 = displayElement[check[2]];
+    for (var line in lines) {
+      String p1 = displayElement[line[0]];
+      String p2 = displayElement[line[1]];
+      String p3 = displayElement[line[2]];
       if (p1 != '' && p1 == p2 && p2 == p3) {
         _showWinDialog(p1);
-        return;
+        return true;
       }
     }
+    return false;
   }
 
   void _showWinDialog(String winner) {
+    String message = isSinglePlayer 
+        ? (winner == 'O' ? "You Won!" : "AI Won!") 
+        : "Player $winner takes the round.";
+
     showDialog(
       barrierDismissible: false,
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: bgBottom,
-        title: const Text("Winner!", style: TextStyle(color: Colors.white)),
-        content: Text("Player $winner takes the round.", style: const TextStyle(color: Colors.white70)),
+        title: const Text("Game Over", style: TextStyle(color: Colors.white)),
+        content: Text(message, style: const TextStyle(color: Colors.white70)),
         actions: [
           TextButton(
             child: const Text("Play Again", style: TextStyle(color: Colors.white)),
@@ -356,6 +427,8 @@ class _TicTacToeGameState extends State<TicTacToeGame> {
       displayElement = List.filled(9, '');
       oMoves.clear();
       xMoves.clear();
+      oTurn = true; 
+      isComputerThinking = false;
     });
   }
 }
